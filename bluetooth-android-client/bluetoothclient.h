@@ -20,7 +20,7 @@ public:
     explicit BluetoothClient(QObject *parent = nullptr);
     ~BluetoothClient();
 
-//    Q_PROPERTY(QString data READ getData NOTIFY dataChanged)
+    Q_PROPERTY(QString data READ getData NOTIFY dataChanged)
 
     void startClient(const QBluetoothServiceInfo &remoteService);
     void stopClient();
@@ -29,11 +29,13 @@ public slots:
     void sendMessage(const QString &message);
     void serviceDiscovered(const QBluetoothServiceInfo &serviceInfo);
     void discoveryFinished();
+    QString getData();
 
 signals:
     void messageReceived(const QString &sender, const QString &message);
     void connected(const QString &name);
     void disconnected();
+    void dataChanged();
 
 private slots:
     void readSocket();
@@ -42,6 +44,7 @@ private slots:
 private:
     QBluetoothSocket *m_socket;
     QBluetoothServiceDiscoveryAgent *m_discoveryAgent;
+    QString m_data;
 };
 
 

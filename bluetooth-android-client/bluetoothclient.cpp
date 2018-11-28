@@ -2,7 +2,10 @@
 
 BluetoothClient::BluetoothClient(QObject *parent) : QObject(parent)
 {
+    // Init shared data
+    m_data = "Not Connected";
 
+    // Init discovery agent
     m_discoveryAgent = new QBluetoothServiceDiscoveryAgent(QBluetoothAddress());
 
     connect(m_discoveryAgent, SIGNAL(finished()), this, SLOT(discoveryFinished()));
@@ -57,7 +60,8 @@ void BluetoothClient::readSocket()
 
     while (m_socket->canReadLine()) {
         QByteArray line = m_socket->readLine();
-        qDebug() << "Soket read : " << QString::fromUtf8(line.constData(), line.length());
+        m_data = QString::fromUtf8(line.constData(), line.length());
+        emit dataChanged();
         emit messageReceived(m_socket->peerName(),
                              QString::fromUtf8(line.constData(), line.length()));
     }
@@ -93,4 +97,8 @@ void BluetoothClient::serviceDiscovered(const QBluetoothServiceInfo &serviceInfo
 
 void BluetoothClient::discoveryFinished() {
     qDebug() << "Discovery finished !";
+}
+
+QString BluetoothClient::getData() {
+    return m_data;
 }
