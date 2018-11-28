@@ -1,4 +1,7 @@
 #include "bluetoothclient.h"
+#ifdef Q_OS_ANDROID
+#include <QtAndroidExtras/QtAndroid>
+#endif
 
 BluetoothClient::BluetoothClient(QObject *parent) : QObject(parent)
 {
@@ -12,6 +15,8 @@ BluetoothClient::BluetoothClient(QObject *parent) : QObject(parent)
     connect(m_discoveryAgent, SIGNAL(serviceDiscovered(QBluetoothServiceInfo)),
             this, SLOT(serviceDiscovered(QBluetoothServiceInfo)));
     qDebug() << "Starting discovering services...";
+    setData("Discovering...");
+
 #ifdef Q_OS_ANDROID
     if (QtAndroid::androidSdkVersion() >= 23)
         m_discoveryAgent->setUuidFilter(QBluetoothUuid(reverseUuid));
@@ -37,9 +42,11 @@ void BluetoothClient::startClient(const QBluetoothServiceInfo &remoteService)
     if (m_socket)
         return;
 
+    setData("Start client !");
     // Connect to service
     m_socket = new QBluetoothSocket(QBluetoothServiceInfo::RfcommProtocol);
     qDebug() << "Create socket";
+
     m_socket->connectToService(remoteService);
     qDebug() << "ConnectToService done";
 
@@ -60,8 +67,7 @@ void BluetoothClient::readSocket()
 
     while (m_socket->canReadLine()) {
         QByteArray line = m_socket->readLine();
-        m_data = QString::fromUtf8(line.constData(), line.length());
-        emit dataChanged();
+        setData(QString::fromUtf8(line.constData(), line.length()));
         emit messageReceived(m_socket->peerName(),
                              QString::fromUtf8(line.constData(), line.length()));
     }
@@ -81,6 +87,7 @@ void BluetoothClient::stopClient()
 
 void BluetoothClient::serviceDiscovered(const QBluetoothServiceInfo &serviceInfo)
 {
+    setData("Service Discoverd ! " + serviceInfo.device().address().toString());
     qDebug() << "Discovered service on"
              << serviceInfo.device().name() << serviceInfo.device().address().toString();
     qDebug() << "\tService name:" << serviceInfo.serviceName();
@@ -97,8 +104,16 @@ void BluetoothClient::serviceDiscovered(const QBluetoothServiceInfo &serviceInfo
 
 void BluetoothClient::discoveryFinished() {
     qDebug() << "Discovery finished !";
+    setData("Discovering over");
 }
 
 QString BluetoothClient::getData() {
     return m_data;
+}
+
+void BluetoothClient::setData(QString newData) {
+    if(newData != m_data) {
+        m_data = newData;
+        emit dataChanged();
+    }
 }

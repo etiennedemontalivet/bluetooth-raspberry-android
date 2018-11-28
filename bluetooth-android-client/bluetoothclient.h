@@ -30,6 +30,7 @@ public slots:
     void serviceDiscovered(const QBluetoothServiceInfo &serviceInfo);
     void discoveryFinished();
     QString getData();
+    void setData(QString newData);
 
 signals:
     void messageReceived(const QString &sender, const QString &message);
