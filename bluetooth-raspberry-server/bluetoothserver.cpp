@@ -21,20 +21,17 @@ BluetoothServer::BluetoothServer(QObject *parent) : QObject(parent)
         // Make it visible to others
         localDevice.setHostMode(QBluetoothLocalDevice::HostDiscoverable);
 
-
-
         // Get connected devices
         QList<QBluetoothAddress> remotes;
         remotes = localDevice.connectedDevices();
-
     }
 }
 
 void BluetoothServer::startServer(const QBluetoothAddress &localAdapter) {
     qDebug() << "Starting bluetooth server...";
-    rfcommServer = new QBluetoothServer(QBluetoothServiceInfo::RfcommProtocol, this);
-    connect(rfcommServer, SIGNAL(newConnection()), this, SLOT(clientConnected()));
-    bool result = rfcommServer->listen(localAdapter);
+    m_rfcommServer = new QBluetoothServer(QBluetoothServiceInfo::RfcommProtocol, this);
+    connect(m_rfcommServer, SIGNAL(newConnection()), this, SLOT(clientConnected()));
+    bool result = m_rfcommServer->listen(localAdapter);
     if (!result) {
         qWarning() << "Cannot bind bluetooth server to" << localAdapter.toString();
         return;
@@ -42,19 +39,19 @@ void BluetoothServer::startServer(const QBluetoothAddress &localAdapter) {
 
     // Set server attributes
     qDebug() << "Setting bluetooth server attributes...";
-    serviceInfo.setAttribute(QBluetoothServiceInfo::ServiceName, tr("Bt Rpi 3 Server"));
-    serviceInfo.setAttribute(QBluetoothServiceInfo::ServiceDescription,
+    m_serviceInfo.setAttribute(QBluetoothServiceInfo::ServiceName, tr("Bt Rpi 3 Server"));
+    m_serviceInfo.setAttribute(QBluetoothServiceInfo::ServiceDescription,
                              tr("Example bluetooth rpi3 server"));
-    serviceInfo.setAttribute(QBluetoothServiceInfo::ServiceProvider, tr("qt-project.org"));
+    m_serviceInfo.setAttribute(QBluetoothServiceInfo::ServiceProvider, tr("qt-project.org"));
 
     // Create unique bt uuid
-    serviceInfo.setServiceUuid(QBluetoothUuid(serviceUuid));
+    m_serviceInfo.setServiceUuid(QBluetoothUuid(serviceUuid));
 
     // Make it discoverable
     qDebug() << "Make bluetooth server discoverable...";
     QBluetoothServiceInfo::Sequence publicBrowse;
     publicBrowse << QVariant::fromValue(QBluetoothUuid(QBluetoothUuid::PublicBrowseGroup));
-    serviceInfo.setAttribute(QBluetoothServiceInfo::BrowseGroupList,
+    m_serviceInfo.setAttribute(QBluetoothServiceInfo::BrowseGroupList,
                              publicBrowse);
 
     // Used protocol
@@ -64,12 +61,12 @@ void BluetoothServer::startServer(const QBluetoothAddress &localAdapter) {
     protocolDescriptorList.append(QVariant::fromValue(protocol));
     protocol.clear();
     protocol << QVariant::fromValue(QBluetoothUuid(QBluetoothUuid::Rfcomm))
-             << QVariant::fromValue(quint8(rfcommServer->serverPort()));
+             << QVariant::fromValue(quint8(m_rfcommServer->serverPort()));
     protocolDescriptorList.append(QVariant::fromValue(protocol));
-    serviceInfo.setAttribute(QBluetoothServiceInfo::ProtocolDescriptorList,
+    m_serviceInfo.setAttribute(QBluetoothServiceInfo::ProtocolDescriptorList,
                              protocolDescriptorList);
 
-    serviceInfo.registerService(localAdapter);
+    m_serviceInfo.registerService(localAdapter);
 }
 
 BluetoothServer::~BluetoothServer() {
@@ -78,33 +75,33 @@ BluetoothServer::~BluetoothServer() {
 
 void BluetoothServer::stopServer() {
     // Unregister service
-    serviceInfo.unregisterService();
+    m_serviceInfo.unregisterService();
 
     // Close sockets
-    qDeleteAll(clientSockets);
+    qDeleteAll(m_clientSockets);
 
     // Close server
-    delete rfcommServer;
-    rfcommServer = nullptr;
+    delete m_rfcommServer;
+    m_rfcommServer = nullptr;
 }
 
 void BluetoothServer::sendMessage(const QString &message) {
     qDebug() << "Bluetooth sending: " << message;
     QByteArray text = message.toUtf8() + '\n';
 
-    foreach (QBluetoothSocket *socket, clientSockets)
+    foreach (QBluetoothSocket *socket, m_clientSockets)
         socket->write(text);
 }
 
 void BluetoothServer::clientConnected() {
     qDebug() << "New connection detected !";
-    QBluetoothSocket *socket = rfcommServer->nextPendingConnection();
+    QBluetoothSocket *socket = m_rfcommServer->nextPendingConnection();
     if (!socket)
         return;
 
     connect(socket, SIGNAL(readyRead()), this, SLOT(readSocket()));
     connect(socket, SIGNAL(disconnected()), this, SLOT(clientDisconnected()));
-    clientSockets.append(socket);
+    m_clientSockets.append(socket);
     qDebug() << "Client [" << socket->peerName() << "] connected !";
     emit clientConnected(socket->peerName());
 }
@@ -116,7 +113,7 @@ void BluetoothServer::clientDisconnected() {
 
     emit clientDisconnected(socket->peerName());
 
-    clientSockets.removeOne(socket);
+    m_clientSockets.removeOne(socket);
 
     socket->deleteLater();
 }

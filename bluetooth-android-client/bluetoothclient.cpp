@@ -19,77 +19,46 @@ BluetoothClient::BluetoothClient(QObject *parent) : QObject(parent)
 #endif
 
     m_discoveryAgent->start(QBluetoothServiceDiscoveryAgent::FullDiscovery);
-
-    //    // scan for services
-    //    const QBluetoothAddress adapter = QBluetoothAddress();
-
-    //#ifdef Q_OS_ANDROID
-    //    if (QtAndroid::androidSdkVersion() >= 23)
-    //        remoteSelector.startDiscovery(QBluetoothUuid(reverseUuid));
-    //    else
-    //        remoteSelector.startDiscovery(QBluetoothUuid(serviceUuid));
-    //#else
-    //    remoteSelector.startDiscovery(QBluetoothUuid(serviceUuid));
-    //#endif
-    //    if (remoteSelector.exec() == QDialog::Accepted) {
-    //        QBluetoothServiceInfo service = remoteSelector.service();
-
-    //        qDebug() << "Connecting to service 2" << service.serviceName()
-    //                 << "on" << service.device().name();
-
-    //        // Create client
-    //        qDebug() << "Going to create client";
-    //        ChatClient *client = new ChatClient(this);
-    //        qDebug() << "Connecting...";
-
-    //        connect(client, SIGNAL(messageReceived(QString,QString)),
-    //                this, SLOT(showMessage(QString,QString)));
-    //        connect(client, SIGNAL(disconnected()), this, SLOT(clientDisconnected()));
-    //        connect(client, SIGNAL(connected(QString)), this, SLOT(connected(QString)));
-    //        connect(this, SIGNAL(sendMessage(QString)), client, SLOT(sendMessage(QString)));
-    //        qDebug() << "Start client";
-    //        client->startClient(service);
-
-    //        clients.append(client);
-    //    }
-
 }
 
 BluetoothClient::~BluetoothClient()
 {
-
+    if(m_socket)
+        delete m_socket;
+    if(m_discoveryAgent)
+        delete m_discoveryAgent;
 }
 
 void BluetoothClient::startClient(const QBluetoothServiceInfo &remoteService)
 {
-    if (socket)
+    if (m_socket)
         return;
 
     // Connect to service
-    socket = new QBluetoothSocket(QBluetoothServiceInfo::RfcommProtocol);
+    m_socket = new QBluetoothSocket(QBluetoothServiceInfo::RfcommProtocol);
     qDebug() << "Create socket";
-    socket->connectToService(remoteService);
+    m_socket->connectToService(remoteService);
     qDebug() << "ConnectToService done";
 
-    connect(socket, SIGNAL(readyRead()), this, SLOT(readSocket()));
-    connect(socket, SIGNAL(connected()), this, SLOT(connected()));
-    connect(socket, SIGNAL(disconnected()), this, SIGNAL(disconnected()));
+    connect(m_socket, SIGNAL(readyRead()), this, SLOT(readSocket()));
+    connect(m_socket, SIGNAL(connected()), this, SLOT(connected()));
+    connect(m_socket, SIGNAL(disconnected()), this, SIGNAL(disconnected()));
 }
 
 void BluetoothClient::connected()
 {
-    emit connected(socket->peerName());
+    emit connected(m_socket->peerName());
 }
 
 void BluetoothClient::readSocket()
 {
-    if (!socket)
+    if (!m_socket)
         return;
 
-    while (socket->canReadLine()) {
-        QByteArray line = socket->readLine();
+    while (m_socket->canReadLine()) {
+        QByteArray line = m_socket->readLine();
         qDebug() << "Soket read : " << QString::fromUtf8(line.constData(), line.length());
-        emit messageReceived(socket->peerName(),
+        emit messageReceived(m_socket->peerName(),
                              QString::fromUtf8(line.constData(), line.length()));
     }
 }
@@ -97,13 +66,13 @@ void BluetoothClient::readSocket()
 void BluetoothClient::sendMessage(const QString &message)
 {
     QByteArray text = message.toUtf8() + '\n';
-    socket->write(text);
+    m_socket->write(text);
 }
 
 void BluetoothClient::stopClient()
 {
-    delete socket;
-    socket = 0;
+    delete m_socket;
+    m_socket = nullptr;
 }
 
 void BluetoothClient::serviceDiscovered(const QBluetoothServiceInfo &serviceInfo)
@@ -120,27 +89,6 @@ void BluetoothClient::serviceDiscovered(const QBluetoothServiceInfo &serviceInfo
     qDebug() << "\tRFCOMM server channel:" << serviceInfo.serverChannel();
 
     startClient(serviceInfo);
-
-//    QMapIterator<QListWidgetItem *, QBluetoothServiceInfo> i(m_discoveredServices);
-//    while (i.hasNext()){
-//        i.next();
-//        if (serviceInfo.device().address() == i.value().device().address()){
-//            return;
-//        }
-//    }
-
-//    QString remoteName;
-//    if (serviceInfo.device().name().isEmpty())
-//        remoteName = serviceInfo.device().address().toString();
-//    else
-//        remoteName = serviceInfo.device().name();
-
-//    QListWidgetItem *item =
-//        new QListWidgetItem(QString::fromLatin1("%1 %2").arg(remoteName,
-//                                                             serviceInfo.serviceName()));
-
-//    m_discoveredServices.insert(item, serviceInfo);
-//    ui->remoteDevices->addItem(item);
 }
 
 void BluetoothClient::discoveryFinished() {

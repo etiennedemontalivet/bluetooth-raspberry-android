@@ -40,7 +40,7 @@ private slots:
     void connected();
 
 private:
-    QBluetoothSocket *socket;
+    QBluetoothSocket *m_socket;
     QBluetoothServiceDiscoveryAgent *m_discoveryAgent;
 };
 
